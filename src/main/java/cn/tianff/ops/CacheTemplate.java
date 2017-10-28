@@ -4,12 +4,14 @@ import cn.tianff.cache.CachedObject;
 import cn.tianff.cache.HashCacheWrapper;
 import cn.tianff.cache.annotation.Cache;
 import cn.tianff.cache.annotation.Key;
+import cn.tianff.testing.Bear;
 import com.google.gson.Gson;
 import com.google.gson.reflect.TypeToken;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.http.ResponseEntity;
 import org.springframework.http.converter.json.MappingJackson2HttpMessageConverter;
+import org.springframework.util.ClassUtils;
 import org.springframework.web.client.RestTemplate;
 
 import java.lang.reflect.Field;
@@ -28,11 +30,10 @@ public class CacheTemplate {
     private static final String PROTOCOL = "http://";
     private static final String DEFAULT_DOMAIN_NAME = "localhost:8080";
 
-    private static final String DEFAULT_CRUD_REST_URL = "/cache/api/object";
+    private static final String DEFAULT_CRUD_REST_URL = "/cache/api/object/";
 
     private Gson defaultJsonParser = new Gson();
 
-    private String domainName;
     private String retrieveUrl;
     private String saveUrl;
     private String deleteUrl;
@@ -49,7 +50,6 @@ public class CacheTemplate {
         this.retrieveUrl = retrieveUrl;
         this.saveUrl = saveUrl;
         this.deleteUrl = deleteUrl;
-        this.domainName = domainName;
 
         this.requestBaseUrl = PROTOCOL + domainName;
 
@@ -59,14 +59,14 @@ public class CacheTemplate {
     }
 
     public <T> T retrieve(String key, Class<T> clazz) {
-        String url = requestBaseUrl + retrieveUrl + getCacheKeyPrefix(clazz) + ":" + "key";
+        String url = requestBaseUrl + retrieveUrl + getCacheKeyPrefix(clazz) + ":" + key;
 //        This line may be not safe
 //        CachedObject<T> cachedObject = restTemplate.getForObject(url, HashCacheWrapper.class);
         ResponseEntity<String> entity = restTemplate.getForEntity(url, String.class);
         CachedObject<T> cachedObject = defaultJsonParser.fromJson(entity.getBody(), new TypeToken<HashCacheWrapper<T>>() {
         }.getType());
 
-        return cachedObject.get(clazz);
+        return cachedObject == null ? null : cachedObject.get(clazz);
     }
 
     public void save(Object obj) {
@@ -102,7 +102,7 @@ public class CacheTemplate {
             throw new IllegalStateException("Check if your class " + clazz.getName() + " has annotation \"cn.tianff.cache.annotation.Cache\"!");
         }
 
-        return clazz.getPackage() + "." + ("".equals(anno.value()) ? clazz.getName() : anno.value());
+        return ClassUtils.getPackageName(clazz) + "." + ("".equals(anno.value()) ? ClassUtils.getShortName(clazz) : anno.value());
     }
 
     private String getCacheKey(Object obj) {
@@ -124,4 +124,16 @@ public class CacheTemplate {
             return null;
         }
     }
+
+
+    /*public static void main(String[] args) {
+
+        System.out.println(ClassUtils.getPackageName(Bear.class));
+        System.out.println(ClassUtils.getShortName(Bear.class));
+
+        CacheTemplate template = new CacheTemplate();
+
+        Bear bear = template.retrieve("A-demo-dash-bear", Bear.class);
+        System.out.println(bear);
+    }*/
 }
